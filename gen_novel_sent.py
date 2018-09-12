@@ -16,8 +16,7 @@ class Text_to_text():
     def __init__(self):
         #find paraphrase of unigrams with following tags
         self.tags = ['NN' , 'NNS' , 'VB', 'VBD' , 'VBG' , 'VBN' , 'VBP', 'VBZ' , 'JJ' , 'JJR' , 'JJS', 'RB' , 'RBR' , 'RBS']
-        self.foutput = open('gen_sent.txt', 'w', encoding="utf8")
-        self.mcmc_output = open('mcmc_psy_gen_2.txt', 'w', encoding="utf8")
+        self.mcmc_output = open('mcmc_psy_gen.txt', 'w', encoding="utf8")
         self.topK=3
         self.dict_sent = {}
         self.C = 1
@@ -175,15 +174,11 @@ class Text_to_text():
             #paraph_words = self.__find_paraphrase__(word, self.topK)
             paraph_words = list(self.best_topK_paraphrase[word].keys())
             for paraph_word in paraph_words:
-                #self.foutput.write(word+' === ' + paraph_word +'\n') 
                 gen_sentence =  sentence.replace(word, paraph_word, 1)
                 gen_sentence = re.sub(r' ([^A-Za-z0-9])', r'\1', gen_sentence)
-                #self.foutput.write('gen  '+gen_sentence_1+'\n') 
                 matches = tool.check(gen_sentence)
                 if len(matches) >0:
-                    #self.foutput.write('num_error= ' + str(len(matches)) +'\n')
                     corrected_sent= language_check.correct(gen_sentence, matches)
-                    #self.foutput.write('corr ' + corrected_sent +'\n')
                 else:
                     corrected_sent = gen_sentence
                 self.dict_sent[corrected_sent] = math.exp(self.C/(len(matches)+1))
@@ -191,7 +186,6 @@ class Text_to_text():
     #instead of considering just one word, let's consider ngrams and if the ngram's paraphrase exist replace it in the sentence.            
     def __gen_dif_text__(self, sentence):
         self.dict_sent = {}
-        #self.foutput.write('orig '+sentence)
         tool = language_check.LanguageTool('en-US')
         token =nltk.word_tokenize(sentence)
         self.__gen_text__(sentence)
@@ -204,15 +198,11 @@ class Text_to_text():
                 paraph_words = list(self.best_topK_paraphrase[item].keys())  
                 for paraph_word in paraph_words:
                     gen_sentence_1 = ''                        
-                    #self.foutput.write(items+' === ' + paraph_word+ '\n') 
                     gen_sentence = sentence.replace(item, paraph_word, 1)
                     gen_sentence = re.sub(r' ([^A-Za-z0-9])', r'\1', gen_sentence)                        
-                    #self.foutput.write('gen  '+gen_sentence)                         
                     matches = tool.check(gen_sentence)
                     if len(matches) >0:
-                        #self.foutput.write('num_error= ' + str(len(matches)) +'\n')
                         corrected_sent= language_check.correct(gen_sentence, matches)
-                        #self.foutput.write('corr ' + corrected_sent +'\n') 
                     else:
                         corrected_sent = gen_sentence
                     self.dict_sent[corrected_sent] = math.exp(self.C/(len(matches)+1))
@@ -233,41 +223,27 @@ class Text_to_text():
     def __MCMC__(self, sentence):
         tool = language_check.LanguageTool('en-US') 
         self.mcmc_output.write(sentence)
-        #print(sentence)        
         matches = tool.check(sentence)
         sent_score = math.exp(self.C/(len(matches)+1))
-        #print('num_error ' +str(len(matches)))
-        #print('sentence score ' + str(sent_score))
         self.__gen_dif_text__(sentence)
         num_changes = 0 
         
         if  len(self.dict_sent) > 0 and len(sentence.split()) > 3:
             while num_changes <=20 and len(self.dict_sent) > 0:
                 num_candidates = len(self.dict_sent)
-                #print(self.dict_sent)
-                #print('num of candiadates ' + str(num_candidates))
                 ran_ind = random.randint(0,num_candidates-1)
-                #print(ran_ind)
                 ran_sample = list(self.dict_sent.keys())[ran_ind]
                 ran_score = self.dict_sent[ran_sample]
-                #print('sampled sentence ' + ran_sample)            
-                #print('samples score ' + str(ran_score))
                 min_scores = min(1, ran_score/sent_score)
                 rand_num = random.random()
                 if min_scores > rand_num:
                     num_changes +=1
                     sentence = ran_sample
                     sent_score = ran_score
-                    #print('generate sent')
                     self.__gen_dif_text__(sentence)
-                    #print('generated sent')
-                    self.mcmc_output.write(str(num_changes) + " " + sentence +"\n")
-                    #print(str(num_changes) + " " + sentence)
-                    #print('new score is ' + str(sent_score))
-        
+                    self.mcmc_output.write(str(num_changes) + " " + sentence +"\n")        
             
-        
-        
+       
         
         
 if __name__ == '__main__':
