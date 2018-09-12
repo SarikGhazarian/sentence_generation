@@ -10,19 +10,20 @@ import math
 import datetime
 
 
-class Text_to_text():
-    
+class Text_to_text:
     
     def __init__(self):
         #find paraphrase of unigrams with following tags
-        self.tags = ['NN' , 'NNS' , 'VB', 'VBD' , 'VBG' , 'VBN' , 'VBP', 'VBZ' , 'JJ' , 'JJR' , 'JJS', 'RB' , 'RBR' , 'RBS']
+        self.tags = ['NN', 'NNS', 'VB', 'VBD', 'VBG', 'VBN' , 'VBP',
+                      'VBZ' , 'JJ' , 'JJR' , 'JJS', 'RB' , 'RBR' , 'RBS']
         self.mcmc_output = open('mcmc_psy_gen.txt', 'w', encoding="utf8")
         self.topK=3
         self.dict_sent = {}
-        self.C = 1
+        # keep this float since you use this for division operations
+        self.C = 1.0
         self.output=''
         self.best_topK_paraphrase = {}
-       
+        self.tool = language_check.LanguageTool('en-US')
         
     def __load_ppdb__(self, orig_fname, pre_fname):    
         fr = open(orig_fname, 'r')
@@ -62,9 +63,7 @@ class Text_to_text():
                 Ent = parts[5]
                 full_lines +=LHS.strip() + "|||" + RHS.strip() + "|||" + Sim.strip() + "|||" + Ent.lstrip()
         fw.write(full_lines)
-        
-        
-        
+
     #This function create a dictionary of whole words in ppdb and for each word finds all its paraphrases and their sim score.
     #self.words ={'hundred': {'thousands': '4.83586'}, 'restriction': {'limitations': '4.83541', 'limitation': '4.83541'}}
     #514786 number of words with paraphrases
@@ -104,7 +103,8 @@ class Text_to_text():
     #number of 4grams 108681
     #number of 5grams 44868
     #number of 6grams 16548
-    #number of 7grams 0    
+    #number of 7grams 0
+
     def __load_dict__(self, dict_fname):
         with open(dict_fname, 'r') as dict_file:
             self.words = json.load(dict_file)
@@ -144,8 +144,7 @@ class Text_to_text():
         #print('number of 7grams ' + str(num_7))
         ##print(self.words['the question'])
         #print('max number of grams is '+str(num_max))
-     
-                
+
     def __load_file__(self, fname):
         fr = open(fname, 'r', encoding="utf8") 
         lines = fr.readlines()
@@ -157,41 +156,55 @@ class Text_to_text():
         for word, tag in taged_sent:
             if tag in self.tags and word in self.words.keys():
                 paraph_words.append(word)
-        return  paraph_words      
-        
+        return  paraph_words
         
     def __POS__(self, sentence):
         tokens = nltk.word_tokenize(sentence)
         taged_sent = nltk.pos_tag(tokens)
         return taged_sent
-    
-    
-    #for unigrams with specified tags (self.tags), find the K nearest paraphrases and replace them. 
+
     def __gen_text__(self, sentence):
+        # for unigrams with specified tags (self.tags), find the K nearest paraphrases and replace them.
+        #
         words = self.__select_words_to_paraphrase__(sentence)
-        tool = language_check.LanguageTool('en-US') 
+        tool = self.tool
+        #
         for word in words:
             #paraph_words = self.__find_paraphrase__(word, self.topK)
             paraph_words = list(self.best_topK_paraphrase[word].keys())
+            #
             for paraph_word in paraph_words:
-                gen_sentence =  sentence.replace(word, paraph_word, 1)
+                gen_sentence = sentence.replace(word, paraph_word, 1)
+                # precompile the regular expression in init()
                 gen_sentence = re.sub(r' ([^A-Za-z0-9])', r'\1', gen_sentence)
+                #
                 matches = tool.check(gen_sentence)
+                #
                 if len(matches) >0:
                     corrected_sent= language_check.correct(gen_sentence, matches)
                 else:
                     corrected_sent = gen_sentence
+                #
+                # why maintain a dictionary of sentences,
+                #  simply return the generated sentences, and the likelihood
                 self.dict_sent[corrected_sent] = math.exp(self.C/(len(matches)+1))
 
-    #instead of considering just one word, let's consider ngrams and if the ngram's paraphrase exist replace it in the sentence.            
     def __gen_dif_text__(self, sentence):
+        # instead of considering just one word, let's consider ngrams
+        # and if the ngram's paraphrase exist replace it in the sentence.
+        #
+        # this is supposed to be very slow
+        # need significant changes
+        # is list() call necessary
+        #
+        #
         self.dict_sent = {}
-        tool = language_check.LanguageTool('en-US')
+        tool = self.tool
         token =nltk.word_tokenize(sentence)
         self.__gen_text__(sentence)
-
-        for i in range(2,6):
-            n_grams = list(ngrams(token, i)) 
+        #
+        for i in range(2, 6):
+            n_grams = list(ngrams(token, i))
             items = [' '.join(items) for items in n_grams if ' '.join(items)  in self.words.keys()]
             for item in items:
                 #paraph_words = self.__find_paraphrase__(items, self.topK)
@@ -199,15 +212,22 @@ class Text_to_text():
                 for paraph_word in paraph_words:
                     gen_sentence_1 = ''                        
                     gen_sentence = sentence.replace(item, paraph_word, 1)
-                    gen_sentence = re.sub(r' ([^A-Za-z0-9])', r'\1', gen_sentence)                        
+                    gen_sentence = re.sub(r' ([^A-Za-z0-9])', r'\1', gen_sentence)
+                    #
                     matches = tool.check(gen_sentence)
-                    if len(matches) >0:
-                        corrected_sent= language_check.correct(gen_sentence, matches)
+                    # compute len of matches in advance, if too many matches, this is expensive operation
+                    #
+                    if len(matches) > 0:
+                        # expensive
+                        # this should also be expensive operation,
+                        # correct a sentence only if itis accepted as a sample
+                        corrected_sent = language_check.correct(gen_sentence, matches)
                     else:
                         corrected_sent = gen_sentence
+                    #
+                    # define a function one place that computes likelihood
                     self.dict_sent[corrected_sent] = math.exp(self.C/(len(matches)+1))
-                    
-        
+
     #This method finds the K best paraphrase for each ngram, which has the highest ppdb2 similarity score. 
     def __find_paraphrase__(self, word, topK):
         paraphes_word = self.words[word]
@@ -221,31 +241,39 @@ class Text_to_text():
             self.best_topK_paraphrase[word] = best_paraph
 
     def __MCMC__(self, sentence):
-        tool = language_check.LanguageTool('en-US') 
+        tool = self.tool
         self.mcmc_output.write(sentence)
+        #
+        # this operation should be expensive
         matches = tool.check(sentence)
+        #
+        # note: when performing division, make sure that one of the variables is float
+        # (4/5=0 in python, not 0.8, 4.0/5 is 0.8 in python)
+        # exp operation is expensive in python
         sent_score = math.exp(self.C/(len(matches)+1))
         self.__gen_dif_text__(sentence)
         num_changes = 0 
-        
-        if  len(self.dict_sent) > 0 and len(sentence.split()) > 3:
-            while num_changes <=20 and len(self.dict_sent) > 0:
+        #
+        # compute len() in advance, why call that function again and again
+        # compute split() in advance, why call again and again
+        #
+        if len(self.dict_sent) > 0 and len(sentence.split()) > 3:
+            while num_changes <= 20 and len(self.dict_sent) > 0:
                 num_candidates = len(self.dict_sent)
-                ran_ind = random.randint(0,num_candidates-1)
+                ran_ind = random.randint(0, num_candidates-1)
                 ran_sample = list(self.dict_sent.keys())[ran_ind]
                 ran_score = self.dict_sent[ran_sample]
                 min_scores = min(1, ran_score/sent_score)
                 rand_num = random.random()
+                #
                 if min_scores > rand_num:
+                    # mcmc sample is accepted
                     num_changes +=1
                     sentence = ran_sample
                     sent_score = ran_score
                     self.__gen_dif_text__(sentence)
-                    self.mcmc_output.write(str(num_changes) + " " + sentence +"\n")        
-            
-       
-        
-        
+                    self.mcmc_output.write(str(num_changes) + " " + sentence +"\n")
+
 if __name__ == '__main__':
     orig_fname="ppdb2_s.txt"
     pre_fname = "ppdb2s_without[].txt"
