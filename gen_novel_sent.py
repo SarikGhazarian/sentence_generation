@@ -39,10 +39,10 @@ class Text_to_text:
         
     def __preprocessing__(self, data_dir, ppdb_fname, pre_fname, dict_fname, input_dataset, vocab_dataset, vocab_ppdb_dataset):
         #Preprocess data
-        #tTOt.__load_ppdb__(data_dir + ppdb_fname, data_dir + pre_fname)
-        #tTOt.__create_dict_ppdb__(data_dir + pre_fname, data_dir + dict_fname)
-        #self.__create_vocabfile__(input_dataset, vocab_dataset) 
-        #self.__create_vocab_ppdb__(data_dir + vocab_ppdb_dataset)        
+        tTOt.__load_ppdb__(data_dir + ppdb_fname, data_dir + pre_fname)
+        tTOt.__create_dict_ppdb__(data_dir + pre_fname, data_dir + dict_fname)
+        self.__create_vocabfile__(input_dataset, vocab_dataset) 
+        self.__create_vocab_ppdb__(data_dir + vocab_ppdb_dataset)        
         return 
         
     def __load_ppdb__(self, orig_fname, pre_fname):    
