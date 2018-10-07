@@ -17,7 +17,7 @@ from lm_1b.lm_1b.data_utils import LM1BDataset
 
 class Text_to_text:
     
-    def __init__(self, data_dir, ppdb_fname, pre_fname, dict_fname, input_dataset, vocab_dataset, vocab_ppdb_dataset, mcmc_output, use_lm, ispreprocess):
+    def __init__(self, data_dir, ppdb_fname, pre_fname, dict_fname, input_dataset, vocab_dataset, mcmc_output, use_lm, ispreprocess):
         """Initialize some parameters
         
         Args:
@@ -27,7 +27,6 @@ class Text_to_text:
             dict_fname: file with words and their paraphrases from PPDB dataset 
             input_dataset: input file name to generate novel sentences for its sentences
             vocab_dataset: vocab file of input_dataset
-            vocab_ppdb_dataset: vocab file of PPDB dataset 
             mcmc_output: file to write the mcmc algorithm's results into it. 
             use_lm: indicate to use language model for calculating likelihood of each sentence or just use the sentence's grammar score as its likelihood
             ispreprocess: indicate to do preprocessing if it is first time or just load files.
@@ -62,7 +61,7 @@ class Text_to_text:
         
         #For first time do preprocessing
         if ispreprocess:
-            self.__preprocessing__(data_dir, ppdb_fname, pre_fname, dict_fname, input_dataset, vocab_dataset, vocab_ppdb_dataset)
+            self.__preprocessing__(data_dir, ppdb_fname, pre_fname, dict_fname, input_dataset, vocab_dataset)
            
         #Load vocab and dictionary files 
         self.vocab_words = self.__load_vocabfile__(data_dir + vocab_dataset)   
@@ -76,7 +75,7 @@ class Text_to_text:
         #In advance compute each ngram's best K paraphrases
         self.best_topK_paraphrase = self.__save_topk_paraphrases__(self.topK)
         
-    def __preprocessing__(self, data_dir, ppdb_fname, pre_fname, dict_fname, input_dataset, vocab_dataset, vocab_ppdb_dataset):
+    def __preprocessing__(self, data_dir, ppdb_fname, pre_fname, dict_fname, input_dataset, vocab_dataset):
         """Call different metohds to preprocess and makes files ready
     
         Args:
@@ -86,7 +85,6 @@ class Text_to_text:
             dict_fname: file with words and their paraphrases from PPDB dataset 
             input_dataset: input file name to generate novel sentences for its sentences
             vocab_dataset: vocab file of input_dataset
-            vocab_ppdb_dataset: vocab file of PPDB dataset 
         
         
         """
@@ -554,13 +552,12 @@ if __name__ == '__main__':
     input_dataset = "psy_dataset.txt" 
     file_name = input_dataset.split(".txt")[0]+"_one_sent_preprocess_tokenize.txt"
     vocab_dataset = "psy_dataset.vocab"
-    vocab_ppdb_dataset = "psy_ppdb.pkl"
     mcmc_output= "mcmc_psy_gramm.txt"
     ispreprocess = False
     use_lm = True
     
     
-    novel_text_obj = Text_to_text(data_dir, ppdb_fname, pre_fname, dict_fname, input_dataset, vocab_dataset, vocab_ppdb_dataset, mcmc_output, use_lm, ispreprocess)
+    novel_text_obj = Text_to_text(data_dir, ppdb_fname, pre_fname, dict_fname, input_dataset, vocab_dataset, mcmc_output, use_lm, ispreprocess)
     
     if use_lm: 
         novel_text_obj.__MCMC_1b_lm__(file_name, mcmc_output)
